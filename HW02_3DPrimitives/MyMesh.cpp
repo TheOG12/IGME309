@@ -61,7 +61,20 @@ void MyMesh::GenerateCone(float a_fRadius, float a_fHeight, int a_nSubdivisions,
 	Init();
 
 	// Replace this with your code
-	GenerateCube(a_fRadius * 2.0f, a_v3Color);
+	//GenerateCube(a_fRadius * 2.0f, a_v3Color);
+	// for the base
+	std::vector<vector3> vertices;
+	float theta = 0;
+	float division = (PI * 2) / a_nSubdivisions;
+	for (int i = 0; i < a_nSubdivisions; i++) {
+		vertices.push_back(vector3((cos(theta) * a_fRadius), (0.0f), (sin(theta) * a_fRadius)));
+		theta += division;
+	}
+
+	for (int i = 0; i < a_nSubdivisions; i++) {
+		AddTri(vector3(0.0f, a_fHeight, 0.0f), vertices[i], vertices[(i + 1) % a_nSubdivisions]);
+		AddTri(vector3(0.0f, 0.0f, 0.0f), vertices[i], vertices[(i + 1) % a_nSubdivisions]);
+	}
 	// -------------------------------
 
 	// Adding information about color
@@ -85,7 +98,26 @@ void MyMesh::GenerateCylinder(float a_fRadius, float a_fHeight, int a_nSubdivisi
 	Init();
 
 	// Replace this with your code
-	GenerateCube(a_fRadius * 2.0f, a_v3Color);
+	// for the base
+	std::vector<vector3> verticesTop;
+	float theta = 0;
+	float division = (PI * 2) / a_nSubdivisions;
+	for (int i = 0; i < a_nSubdivisions; i++) {
+		verticesTop.push_back(vector3((cos(theta) * a_fRadius), (0.0f + (a_fHeight)/2), (sin(theta) * a_fRadius)));
+		theta += division;
+	}
+
+	std::vector<vector3> verticesBottom;
+	for (int i = 0; i < a_nSubdivisions; i++) {
+		verticesBottom.push_back(vector3((cos(theta) * a_fRadius), (0.0f - (a_fHeight) / 2), (sin(theta) * a_fRadius)));
+		theta += division;
+	}
+
+	for (int i = 0; i < a_nSubdivisions; i++) {
+		AddTri(vector3(0.0f, ((a_fHeight) / 2), 0.0f), verticesTop[i], verticesTop[(i + 1) % a_nSubdivisions]);
+		AddTri(vector3(0.0f, -((a_fHeight) / 2), 0.0f), verticesBottom[i], verticesBottom[(i + 1) % a_nSubdivisions]);
+		AddQuad(verticesBottom[i], verticesBottom[(i + 1) % a_nSubdivisions], verticesTop[i], verticesTop[(i + 1) % a_nSubdivisions]);
+	}
 	// -------------------------------
 
 	// Adding information about color
