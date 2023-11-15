@@ -6,12 +6,36 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 	//TODO: Calculate the SAT algorithm I STRONGLY suggest you use the
 	//Real Time Collision detection algorithm for OBB here but feel free to
 	//implement your own solution.
+
+	// tried skipping to the extra credit of generating the plane to understand what was going on
+	Mesh newPlane;
+
+	newPlane.GeneratePlane(1.0f, vector3(0, 0, 0), this->m_m4ToWorld);
+
+
 	return BTXs::eSATResults::SAT_NONE;
 }
 bool MyRigidBody::IsColliding(MyRigidBody* const a_pOther)
 {
+	bool bColliding;
+	// sum the radii of each object's bounding sphere
+	float sumRadii = this->GetRadius() + a_pOther->GetRadius();
+
+	// get distance between the center of each object
+	float distanceBetween = glm::distance(this->GetCenterGlobal(), a_pOther->GetCenterGlobal()); 
+
+	// for testing if the spheres overlapped
+	// this->SetVisibleBS(true);
+	// a_pOther->SetVisibleBS(true);
+	
+
 	//check if spheres are colliding
-	bool bColliding = true;
+	if (sumRadii > distanceBetween) {
+		bColliding = true;
+	}
+	else {
+		bColliding = false;
+	}
 	/*
 	* We use Bounding Spheres or ARBB as a pre-test to avoid expensive calculations (SAT)
 	* we default bColliding to true here to always fall in the need of calculating
@@ -62,6 +86,7 @@ void MyRigidBody::Init(void)
 	m_v3ARBBSize = ZERO_V3;
 
 	m_m4ToWorld = IDENTITY_M4;
+	std::cout << this->m_m4ToWorld.length;
 }
 void MyRigidBody::Swap(MyRigidBody& a_pOther)
 {
