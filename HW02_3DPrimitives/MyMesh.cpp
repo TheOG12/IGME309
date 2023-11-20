@@ -61,19 +61,22 @@ void MyMesh::GenerateCone(float a_fRadius, float a_fHeight, int a_nSubdivisions,
 	Init();
 
 	// Replace this with your code
-	//GenerateCube(a_fRadius * 2.0f, a_v3Color);
-	// for the base
+	//GenerateCube(a_fOuterRadius * 2.0f, a_v3Color);
+	// -------------------------------
+
+	// track all vertices
 	std::vector<vector3> vertices;
 	float theta = 0;
-	float division = (PI * 2) / a_nSubdivisions;
+	float division = (PI * 2) / a_nSubdivisions; // change in theta for each set of vertices
 	for (int i = 0; i < a_nSubdivisions; i++) {
-		vertices.push_back(vector3((cos(theta) * a_fRadius), (0.0f), (sin(theta) * a_fRadius)));
+		vertices.push_back(vector3((cos(theta) * a_fRadius), -(a_fHeight / 2), (sin(theta) * a_fRadius))); //track vertices for base
 		theta += division;
 	}
 
+	// draw the shape
 	for (int i = 0; i < a_nSubdivisions; i++) {
-		AddTri(vector3(0.0f, a_fHeight, 0.0f), vertices[i], vertices[(i + 1) % a_nSubdivisions]);
-		AddTri(vector3(0.0f, 0.0f, 0.0f), vertices[i], vertices[(i + 1) % a_nSubdivisions]);
+		AddTri(vertices[i], vertices[(i + 1) % a_nSubdivisions], vector3(0.0f, -a_fHeight / 2, 0.0f)); // draw the base
+		AddTri(vertices[(i + 1) % a_nSubdivisions], vertices[i], vector3(0.0f, a_fHeight / 2, 0.0f)); // draw the sides
 	}
 	// -------------------------------
 
@@ -98,25 +101,25 @@ void MyMesh::GenerateCylinder(float a_fRadius, float a_fHeight, int a_nSubdivisi
 	Init();
 
 	// Replace this with your code
-	// for the base
-	std::vector<vector3> verticesTop;
-	float theta = 0;
-	float division = (PI * 2) / a_nSubdivisions;
+	//GenerateCube(a_fOuterRadius * 2.0f, a_v3Color);
+	// -------------------------------
+
+	// track all vertices
+	std::vector<vector3> topVertices;
+	std::vector<vector3> bottomVertices;
+	GLfloat theta = 0;
+	GLfloat division = (PI * 2) / a_nSubdivisions; // change in theta for each set of vertices
 	for (int i = 0; i < a_nSubdivisions; i++) {
-		verticesTop.push_back(vector3((cos(theta) * a_fRadius), (0.0f + (a_fHeight)/2), (sin(theta) * a_fRadius)));
+		topVertices.push_back(vector3((cos(theta) * a_fRadius), (a_fHeight / 2),(sin(theta) * a_fRadius))); //track vertices for top face
+		bottomVertices.push_back(vector3((cos(theta) * a_fRadius), -(a_fHeight / 2), (sin(theta) * a_fRadius))); //track vertices for bottom face
 		theta += division;
 	}
 
-	std::vector<vector3> verticesBottom;
+	// draw the shape
 	for (int i = 0; i < a_nSubdivisions; i++) {
-		verticesBottom.push_back(vector3((cos(theta) * a_fRadius), (0.0f - (a_fHeight) / 2), (sin(theta) * a_fRadius)));
-		theta += division;
-	}
-
-	for (int i = 0; i < a_nSubdivisions; i++) {
-		AddTri(vector3(0.0f, ((a_fHeight) / 2), 0.0f), verticesTop[i], verticesTop[(i + 1) % a_nSubdivisions]);
-		AddTri(vector3(0.0f, -((a_fHeight) / 2), 0.0f), verticesBottom[i], verticesBottom[(i + 1) % a_nSubdivisions]);
-		AddQuad(verticesBottom[i], verticesBottom[(i + 1) % a_nSubdivisions], verticesTop[i], verticesTop[(i + 1) % a_nSubdivisions]);
+		AddTri(topVertices[(i + 1) % a_nSubdivisions], topVertices[i], vector3(0.0f, a_fHeight / 2,0.0f)); // draw the top face
+		AddTri(bottomVertices[i], bottomVertices[(i + 1) % a_nSubdivisions], vector3(0.0f, -a_fHeight / 2, 0.0f)); // draw the bottom face
+		AddQuad(topVertices[i], topVertices[(i + 1) % a_nSubdivisions], bottomVertices[i], bottomVertices[(i + 1) % a_nSubdivisions]); // draw the sides of the cylinder
 	}
 	// -------------------------------
 
@@ -147,8 +150,34 @@ void MyMesh::GenerateTube(float a_fOuterRadius, float a_fInnerRadius, float a_fH
 	Init();
 
 	// Replace this with your code
-	GenerateCube(a_fOuterRadius * 2.0f, a_v3Color);
+	//GenerateCube(a_fOuterRadius * 2.0f, a_v3Color);
 	// -------------------------------
+
+	// track all vertices
+	std::vector<vector3> topVerticesOuter;
+	std::vector<vector3> bottomVerticesOuter;
+	std::vector<vector3> topVerticesInner;
+	std::vector<vector3> bottomVerticesInner;
+	GLfloat theta = 0;
+	GLfloat division = (PI * 2) / a_nSubdivisions; // change in theta for each set of vertices
+	for (int i = 0; i < a_nSubdivisions; i++) {
+		topVerticesOuter.push_back(vector3((cos(theta) * a_fOuterRadius), (a_fHeight / 2), (sin(theta) * a_fOuterRadius))); //track vertices for outer ring of the top face
+		topVerticesInner.push_back(vector3((cos(theta) * a_fInnerRadius), (a_fHeight / 2), (sin(theta) * a_fInnerRadius))); //track vertices for inner ring of the top face
+
+		bottomVerticesOuter.push_back(vector3((cos(theta) * a_fOuterRadius), -(a_fHeight / 2), (sin(theta) * a_fOuterRadius))); //track vertices for outer ring of the bottom face
+		bottomVerticesInner.push_back(vector3((cos(theta) * a_fInnerRadius), -(a_fHeight / 2), (sin(theta) * a_fInnerRadius))); //track vertices for inner ring of the bottom face
+
+		theta += division;
+	}
+
+	// draw the shape
+	for (int i = 0; i < a_nSubdivisions; i++) {
+		AddQuad(topVerticesOuter[(i + 1) % a_nSubdivisions], topVerticesOuter[i], topVerticesInner[(i + 1) % a_nSubdivisions], topVerticesInner[i]); // draw the top face of the tube
+		AddQuad(bottomVerticesOuter[i], bottomVerticesOuter[(i + 1) % a_nSubdivisions], bottomVerticesInner[i], bottomVerticesInner[(i + 1) % a_nSubdivisions]); // draw the bottom face of the tube
+		
+		AddQuad(topVerticesOuter[i], topVerticesOuter[(i + 1) % a_nSubdivisions], bottomVerticesOuter[i], bottomVerticesOuter[(i + 1) % a_nSubdivisions]); // draw the outer sides of the tube
+		AddQuad(bottomVerticesInner[i], bottomVerticesInner[(i + 1) % a_nSubdivisions], topVerticesInner[i], topVerticesInner[(i + 1) % a_nSubdivisions]); // draw the inner sides of the tube
+	}
 
 	// Adding information about color
 	CompleteMesh(a_v3Color);
@@ -206,6 +235,7 @@ void MyMesh::GenerateSphere(float a_fRadius, int a_nSubdivisions, vector3 a_v3Co
 	// Replace this with your code
 	GenerateCube(a_fRadius * 2.0f, a_v3Color);
 	// -------------------------------
+
 
 	// Adding information about color
 	CompleteMesh(a_v3Color);
