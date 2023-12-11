@@ -24,12 +24,32 @@ Octant::Octant(uint a_nMaxLevel, uint a_nIdealEntityCount)
 	//want in it, remember each subdivision will create 8 children for this octant but not all children
 	//of those children will have children of their own
 
-	//The following is a made-up size, you need to make sure it is measuring all the object boxes in the world
-	std::vector<vector3> lMinMax;
-	lMinMax.push_back(vector3(-50.0f));
-	lMinMax.push_back(vector3(25.0f));
-	RigidBody pRigidBody = RigidBody(lMinMax);
+	// determine the exact size for the rigidbody to emcompass all of the objects
+	vector3 minCoordinates = vector3(0.0f, 0.0f, 0.0f);
+	vector3 maxCoordinates = vector3(0.0f, 0.0f, 0.0f);
+	uint totalObjects = m_pEntityMngr->GetEntityCount();
+	for (uint i = 0; i < totalObjects; i++) {
 
+		// get the min and max coordinates of the current entity
+		vector3 entityMin = m_pEntityMngr->GetRigidBody(i)->GetMinGlobal();
+		vector3 entityMax = m_pEntityMngr->GetRigidBody(i)->GetMaxGlobal();
+
+		// set min coordinates of the rigidbody
+		if (entityMin.x < minCoordinates.x) { minCoordinates.x = entityMin.x; };
+		if (entityMin.y < minCoordinates.y) { minCoordinates.y = entityMin.y; };
+		if (entityMin.z < minCoordinates.z) { minCoordinates.z = entityMin.z; };
+
+		// set max coordinates of the rigidbody
+		if (entityMax.x > maxCoordinates.x) { maxCoordinates.x = entityMax.x; };
+		if (entityMax.y > maxCoordinates.y) { maxCoordinates.y = entityMax.y; };
+		if (entityMax.z > maxCoordinates.z) { maxCoordinates.z = entityMax.z; };
+	}
+
+	// sized based on objects in the world
+	std::vector<vector3> lMinMax;
+	lMinMax.push_back(minCoordinates);
+	lMinMax.push_back(maxCoordinates);
+	RigidBody pRigidBody = RigidBody(lMinMax);
 
 	//The following will set up the values of the octant, make sure the are right, the rigid body at start
 	//is NOT fine, it has made-up values
@@ -45,14 +65,45 @@ Octant::Octant(uint a_nMaxLevel, uint a_nIdealEntityCount)
 bool Octant::IsColliding(uint a_uRBIndex)
 {
 	//Get how many objects there are in the world
+	uint totalObjects = m_pEntityMngr->GetEntityCount();
+	
 	//If the index given is larger than the number of elements in the bounding object there is no collision
+	if (totalObjects < a_uRBIndex) {
+		return false;
+	}
+
 	//As the Octree will never rotate or scale this collision is as easy as an Axis Alligned Bounding Box
 	//Get all vectors in global space (the octant ones are already in Global)
+	RigidBody* currentRigidbody = m_pEntityMngr->GetRigidBody(a_uRBIndex);
+	vector3 objectMinCoords = currentRigidbody->GetMinGlobal();
+	vector3 objectMaxCoords = currentRigidbody->GetMaxGlobal();
+	
+	// check x overlap
+	if (m_v3Max.x < objectMinCoords.x) { return false; }
+	if (m_v3Min.x > objectMaxCoords.x) { return false; }
+
+	// check y overlap
+	if (m_v3Max.y < objectMinCoords.y) { return false; }
+	if (m_v3Min.y > objectMaxCoords.y) { return false; }
+
+	// check z overlap
+	if (m_v3Max.z < objectMinCoords.z) { return false; }
+	if (m_v3Min.z > objectMaxCoords.z) { return false; }
+
 	return true; // for the sake of startup code
 }
 void Octant::Display(uint a_nIndex, vector3 a_v3Color)
 {
 	// Display the specified octant
+	if (a_nIndex == m_uID) {
+		m_pModelMngr->AddWireCubeToRenderList(glm::translate(IDENTITY_M4, m_v3Center) *
+			glm::scale(vector3(m_fSize)), a_v3Color);
+		return;
+	}
+	for (uint i = 0; i < m_uChildren; i++) {
+		m_pChild[i]->Display(a_nIndex, a_v3Color);
+	}
+
 }
 void Octant::Display(vector3 a_v3Color)
 {
@@ -60,6 +111,10 @@ void Octant::Display(vector3 a_v3Color)
 	//even if other objects are created
 	m_pModelMngr->AddWireCubeToRenderList(glm::translate(IDENTITY_M4, m_v3Center) *
 		glm::scale(vector3(m_fSize)), a_v3Color);
+
+	for (uint i = 0; i < m_uChildren; i++) {
+		m_pChild[i]->Display(a_v3Color);
+	}
 }
 void Octant::Subdivide(void)
 {
@@ -72,18 +127,114 @@ void Octant::Subdivide(void)
 		return;
 
 	//Subdivide the space and allocate 8 children
+	m_uChildren = 8;
+	float octantSize = m_fSize / 2.0f;
+	vector3 groupCenter = m_v3Center;
+	vector3 currentOctCenter = vector3(0.0f);
+
+	// Octant 0 Back Bottom Left
+	currentOctCenter = groupCenter;
+	currentOctCenter.x -= octantSize / 2.0f;
+	currentOctCenter.y -= octantSize / 2.0f;
+	currentOctCenter.z -= octantSize / 2.0f;
+	m_pChild[0] = new Octant(currentOctCenter, octantSize);
+
+	// Octant 1 Back Bottom Right
+	currentOctCenter = groupCenter;
+	currentOctCenter.x += octantSize / 2.0f;
+	currentOctCenter.y -= octantSize / 2.0f;
+	currentOctCenter.z -= octantSize / 2.0f;
+	m_pChild[1] = new Octant(currentOctCenter, octantSize);
+
+	// Octant 2 Back Top Right
+	currentOctCenter = groupCenter;
+	currentOctCenter.x += octantSize / 2.0f;
+	currentOctCenter.y += octantSize / 2.0f;
+	currentOctCenter.z -= octantSize / 2.0f;
+	m_pChild[2] = new Octant(currentOctCenter, octantSize);
+
+	// Octant 3 Back Top Left
+	currentOctCenter = groupCenter;
+	currentOctCenter.x -= octantSize / 2.0f;
+	currentOctCenter.y += octantSize / 2.0f;
+	currentOctCenter.z -= octantSize / 2.0f;
+	m_pChild[3] = new Octant(currentOctCenter, octantSize);
+
+	// Octant 4 Front Top Left
+	currentOctCenter = groupCenter;
+	currentOctCenter.x -= octantSize / 2.0f;
+	currentOctCenter.y += octantSize / 2.0f;
+	currentOctCenter.z += octantSize / 2.0f;
+	m_pChild[4] = new Octant(currentOctCenter, octantSize);
+
+	// Octant 5 Front Bottom Left
+	currentOctCenter = groupCenter;
+	currentOctCenter.x -= octantSize / 2.0f;
+	currentOctCenter.y -= octantSize / 2.0f;
+	currentOctCenter.z += octantSize / 2.0f;
+	m_pChild[5] = new Octant(currentOctCenter, octantSize);
+
+	// Octant 6 Front Bottom Right
+	currentOctCenter = groupCenter;
+	currentOctCenter.x += octantSize / 2.0f;
+	currentOctCenter.y -= octantSize / 2.0f;
+	currentOctCenter.z += octantSize / 2.0f;
+	m_pChild[6] = new Octant(currentOctCenter, octantSize);
+
+	// Octant 7 Front Top Right
+	currentOctCenter = groupCenter;
+	currentOctCenter.x += octantSize / 2.0f;
+	currentOctCenter.y += octantSize / 2.0f;
+	currentOctCenter.z += octantSize / 2.0f;
+	m_pChild[7] = new Octant(currentOctCenter, octantSize);
+
+	for (uint i = 0; i < m_uChildren; i++) {
+		m_pChild[i]->m_pRoot = m_pRoot; // set the root octant for this child
+		m_pChild[i]->m_pParent = this; // set the parent for this child
+		m_pChild[i]->m_uLevel = m_uLevel + 1;
+		if (m_pChild[i]->ContainsAtLeast(m_uIdealEntityCount)) {
+			m_pChild[i]->Subdivide();
+		}
+	}
 }
 bool Octant::ContainsAtLeast(uint a_nEntities)
 {
+	uint totalObjects = m_pEntityMngr->GetEntityCount(); // total objects in the scene
+	
+	uint octObjects = 0; // total objects the current octant
+
 	//You need to check how many entity objects live within this octant
+	for (uint i = 0; i < totalObjects; i++) {
+		if (IsColliding(i)) {
+			octObjects++;
+		}
+		if (octObjects > a_nEntities) {
+			return true;
+		}
+	}
 	return false; //return something for the sake of start up code
 }
 void Octant::AssignIDtoEntity(void)
 {
 	//Recursive method
+	for (uint i = 0; i < m_uChildren; i++) {
+		m_pChild[i]->AssignIDtoEntity();
+	}
+
 	//Have to traverse the tree and make sure to tell the entity manager
-	//what octant (space) each object is at
-	m_pEntityMngr->AddDimension(0, m_uID);//example only, take the first entity and tell it its on this space
+	if (m_uChildren == 0) {
+
+		uint totalObjects = m_pEntityMngr->GetEntityCount(); // total objects in the scene
+
+		//what octant (space) each object is at
+		for (uint i = 0; i < totalObjects; i++) {
+			if (IsColliding(i)) {
+				m_EntityList.push_back(i);
+				m_pEntityMngr->AddDimension(i, m_uID);
+			}
+		}
+	}
+	// m_pEntityMngr->AddDimension(0, m_uID);//example only, take the first entity and tell it its on this space
 }
 //-------------------------------------------------------------------------------------------------------------------
 // You can assume the following is fine and does not need changes, you may add onto it but the code is fine as is
