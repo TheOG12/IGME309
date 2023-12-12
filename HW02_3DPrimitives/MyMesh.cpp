@@ -69,7 +69,7 @@ void MyMesh::GenerateCone(float a_fRadius, float a_fHeight, int a_nSubdivisions,
 	float theta = 0;
 	float division = (PI * 2) / a_nSubdivisions; // change in theta for each set of vertices
 	for (int i = 0; i < a_nSubdivisions; i++) {
-		vertices.push_back(vector3((cos(theta) * a_fRadius), -(a_fHeight / 2), (sin(theta) * a_fRadius))); //track vertices for base
+		vertices.push_back(vector3((cos(theta) * a_fRadius), -(a_fHeight / 2), (sin(theta) * a_fRadius))); // track vertices for base
 		theta += division;
 	}
 
@@ -161,11 +161,11 @@ void MyMesh::GenerateTube(float a_fOuterRadius, float a_fInnerRadius, float a_fH
 	GLfloat theta = 0;
 	GLfloat division = (PI * 2) / a_nSubdivisions; // change in theta for each set of vertices
 	for (int i = 0; i < a_nSubdivisions; i++) {
-		topVerticesOuter.push_back(vector3((cos(theta) * a_fOuterRadius), (a_fHeight / 2), (sin(theta) * a_fOuterRadius))); //track vertices for outer ring of the top face
-		topVerticesInner.push_back(vector3((cos(theta) * a_fInnerRadius), (a_fHeight / 2), (sin(theta) * a_fInnerRadius))); //track vertices for inner ring of the top face
+		topVerticesOuter.push_back(vector3((cos(theta) * a_fOuterRadius), (a_fHeight / 2), (sin(theta) * a_fOuterRadius))); // track vertices for outer ring of the top face
+		topVerticesInner.push_back(vector3((cos(theta) * a_fInnerRadius), (a_fHeight / 2), (sin(theta) * a_fInnerRadius))); // track vertices for inner ring of the top face
 
-		bottomVerticesOuter.push_back(vector3((cos(theta) * a_fOuterRadius), -(a_fHeight / 2), (sin(theta) * a_fOuterRadius))); //track vertices for outer ring of the bottom face
-		bottomVerticesInner.push_back(vector3((cos(theta) * a_fInnerRadius), -(a_fHeight / 2), (sin(theta) * a_fInnerRadius))); //track vertices for inner ring of the bottom face
+		bottomVerticesOuter.push_back(vector3((cos(theta) * a_fOuterRadius), -(a_fHeight / 2), (sin(theta) * a_fOuterRadius))); // track vertices for outer ring of the bottom face
+		bottomVerticesInner.push_back(vector3((cos(theta) * a_fInnerRadius), -(a_fHeight / 2), (sin(theta) * a_fInnerRadius))); // track vertices for inner ring of the bottom face
 
 		theta += division;
 	}
@@ -208,8 +208,55 @@ void MyMesh::GenerateTorus(float a_fOuterRadius, float a_fInnerRadius, int a_nSu
 	Init();
 
 	// Replace this with your code
-	GenerateCube(a_fOuterRadius * 2.0f, a_v3Color);
+	// GenerateCube(a_fOuterRadius * 2.0f, a_v3Color);
 	// -------------------------------
+
+	// got the math for determining the vertices of a torus from here
+	// https://gamedev.stackexchange.com/questions/16845/how-do-i-generate-a-torus-mesh
+
+	float torRadius = (a_fOuterRadius + a_fInnerRadius) / 2; // radius for the torus
+	float tubeRadius = (a_fOuterRadius - a_fInnerRadius) / 2; // radius for the "tube" of the torus
+
+	// track all the vertices
+	std::vector<std::vector<vector3>> torusVertices; // all of the vertices of the torus
+	GLfloat theta = 0; // theta for the circle at each subdivision
+	GLfloat phi = 0; // phi for the torus
+	GLfloat divisionHeight = (PI * 2) / a_nSubdivisionsA; // change in theta for each set of vertices
+	GLfloat divisionRing = (PI * 2) / a_nSubdivisionsB; // change in phi for each set of vertices
+
+	// adds the corresponding vertices for the torus to a vector for each circle created and then adds that vector to a vector for the whole torus
+	for (int i = 0; i < a_nSubdivisionsB; i++) {
+
+		// determine the center point for the circle at the current angle
+		vector3 centerPoint = vector3(torRadius * cos(phi), 0, (torRadius * sin(phi)));
+
+		// determine the vertices for the circle at the current angle
+		std::vector<vector3> circleVertices; // new list of vertices for each subdivision of the torus
+		for (int i = 0; i < (a_nSubdivisionsA); i++) {
+			vector3 circleVertex; // = centerPoint + tubeRadius * cos(theta) * vector3(cos(phi), 0, sin(phi)) + vector3(0, (tubeRadius * sin(theta)), 0);
+			// separated the above comment into x, y, and z for readability
+			circleVertex.x = centerPoint.x + (tubeRadius * cos(theta) * cos(phi));
+			circleVertex.y = centerPoint.y + (tubeRadius * sin(theta));
+			circleVertex.z = centerPoint.z + (tubeRadius * cos(theta) * sin(phi));
+
+			circleVertices.push_back(circleVertex);
+			theta += divisionHeight;
+		}
+		torusVertices.push_back(circleVertices);
+		theta = 0; // reset theta to zero for the next circle
+		phi += divisionRing;
+	}
+
+	// draw the shape
+	for (int i = 0; i < a_nSubdivisionsB; i++) {
+		for (int j = 0; j < a_nSubdivisionsA; j++) {
+			vector3 A = torusVertices[(i + 1) % a_nSubdivisionsB][j];
+			vector3 B = torusVertices[i][j];
+			vector3 C = torusVertices[(i + 1) % a_nSubdivisionsB][(j + 1) % a_nSubdivisionsA];
+			vector3 D = torusVertices[i][(j + 1) % a_nSubdivisionsA];
+			AddQuad(A, B, C, D); // separated so that it was easier to move things around if vertices were added in the wrong order
+		}
+	}
 
 	// Adding information about color
 	CompleteMesh(a_v3Color);
@@ -233,9 +280,44 @@ void MyMesh::GenerateSphere(float a_fRadius, int a_nSubdivisions, vector3 a_v3Co
 	Init();
 
 	// Replace this with your code
-	GenerateCube(a_fRadius * 2.0f, a_v3Color);
+	//GenerateCube(a_fRadius * 2.0f, a_v3Color);
 	// -------------------------------
 
+	// trying to understand spherical coordinates to apply them here
+	// https://mathinsight.org/spherical_coordinates
+	
+	// track all vertices
+	std::vector<std::vector<vector3>> sphereVertices;
+	GLfloat phi = 0; // theta for each sphere vertices
+	GLfloat theta = 0; // theta for the circle vertices
+	GLfloat angleChange = (2 * PI) / a_nSubdivisions; // angle change for drawing the each next set of quads
+
+	// adds the corresponding vertices for the sphere to a vector for each circle created and then adds that vector to a vector for the whole sphere
+	for (int i = 0; i <= a_nSubdivisions; i++) { // needed to do extra loop because using % for the last i makes the top of the sphere cave in back to the first point
+		theta = 0;
+		std::vector<vector3>circleVertices;
+		for (int j = 0; j < (a_nSubdivisions); j++) {
+			vector3 circleVertex;
+			circleVertex.x = a_fRadius * sin(phi) * cos(theta);
+			circleVertex.y = a_fRadius * cos(phi); // switched y and z from original formula for the sake of orientation
+			circleVertex.z = a_fRadius * sin(phi) * sin(theta);
+			theta += angleChange;
+			circleVertices.push_back(circleVertex);
+		}
+		sphereVertices.push_back(circleVertices);
+		phi += angleChange / 2; // restrict phi to only going up to PI rather than 2 * PI
+	}
+
+	// draw the shape
+	for (int i = 0; i < a_nSubdivisions; i++) {
+		for (int j = 0; j < (a_nSubdivisions); j++) {
+			vector3 A = sphereVertices[(i + 1)][j];
+			vector3 B = sphereVertices[i][j];
+			vector3 C = sphereVertices[(i + 1)][(j + 1) % (a_nSubdivisions)];
+			vector3 D = sphereVertices[i][(j + 1) % (a_nSubdivisions)];
+			AddQuad(A, B, C, D); // separated so that it was easier to move things around if vertices were added in the wrong order
+		}
+	}
 
 	// Adding information about color
 	CompleteMesh(a_v3Color);
