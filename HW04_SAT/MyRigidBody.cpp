@@ -7,6 +7,101 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 	//Real Time Collision detection algorithm for OBB here but feel free to
 	//implement your own solution.
 
+	// useful variables
+	vector3 currentHalfWidth = this->GetHalfWidth();
+	vector3 otherHalfWidth = a_pOther->GetHalfWidth();
+	vector3 currentCenter = this->GetCenterGlobal();
+	vector3 otherCenter = a_pOther->GetCenterGlobal(); 
+
+	// OBB variables
+	float currentRadiusProjection;
+	float otherRadiusProjection;
+	matrix3 rotation;
+	matrix3 absRotation;
+	
+	// Compute rotation matrix expressing other in current's coordinate frame
+	for (uint i = 0; i < 3; i++) {
+		for (uint j = 0; j < 3; j++) {
+			rotation[i][j] = glm::dot(vector3(this->m_m4ToWorld[i]), vector3(a_pOther->m_m4ToWorld[j]));
+		}
+	}
+
+	// Compute translation vector t
+	vector3 t = otherCenter - currentCenter;
+	// Bring translation into current's coordinate frame
+	t = vector3(glm::dot(t, vector3(this->m_m4ToWorld[0])), glm::dot(t, vector3(this->m_m4ToWorld[1])), glm::dot(t, vector3(this->m_m4ToWorld[2])));
+
+	// Compute common subexpressions. Add in an epsilon term to 
+	// counteract arithmetic errors when two edges are parallel and
+	// their cross product is (near) null
+	for (uint i = 0; i < 3; i++) {
+		for (uint j = 0; j < 3; j++) {
+			absRotation[i][j] = abs(rotation[i][j]) + glm::epsilon<float>();
+		}
+	}
+
+	// Test axes L = A0, L = A1, L = A2
+	for (uint i = 0; i < 3; i++) {
+		currentRadiusProjection = currentHalfWidth[i];
+		otherRadiusProjection = otherHalfWidth[0] * absRotation[i][0] + otherHalfWidth[1] * absRotation[i][1] + otherHalfWidth[2] * absRotation[i][2];
+		if (abs(t[i]) > currentRadiusProjection + otherRadiusProjection) return 0;
+	}
+
+	// Test axes L = BO, L = B1, L = B2
+	for (uint i = 0; i < 3; i++) {
+		currentRadiusProjection = currentHalfWidth[0] * absRotation[0][i] + currentHalfWidth[1] * absRotation[1][i] + currentHalfWidth[2] * absRotation[2][i];
+		otherRadiusProjection = otherHalfWidth[i];
+		if (abs(t[0]) * rotation[0][i] + t[1] * rotation[1][i] + t[2] * rotation[2][i] > currentRadiusProjection + otherRadiusProjection) return 0;
+	}
+
+	// Test axis L = A0 x B0
+	currentRadiusProjection = currentHalfWidth[1] * absRotation[2][0] + currentHalfWidth[2] * absRotation[1][0];
+	otherRadiusProjection = otherHalfWidth[1] * absRotation[0][2] + otherHalfWidth[2] * absRotation[0][1];
+	if (abs(t[2] * rotation[1][0] - t[1] * rotation[2][0]) > currentRadiusProjection + otherRadiusProjection) return 0;
+
+	// Test axis L = A0 x B1
+	currentRadiusProjection = currentHalfWidth[1] * absRotation[2][2] + currentHalfWidth[2] * absRotation[1][2];
+	otherRadiusProjection = otherHalfWidth[0] * absRotation[0][1] + otherHalfWidth[1] * absRotation[0][0];
+	if (abs(t[2] * rotation[1][2] - t[1] * rotation[2][2]) > currentRadiusProjection + otherRadiusProjection) return 0;
+
+	// Test axis L = A0 x B2
+	currentRadiusProjection = currentHalfWidth[1] * absRotation[2][2] + currentHalfWidth[2] * absRotation[1][2];
+	otherRadiusProjection = otherHalfWidth[0] * absRotation[0][1] + otherHalfWidth[1] * absRotation[0][0];
+	if (abs(t[2] * rotation[1][2] - t[1] * rotation[2][2]) > currentRadiusProjection + otherRadiusProjection) return 0;
+
+	// Test axis L = A1 x B0
+	currentRadiusProjection = currentHalfWidth[0] * absRotation[2][0] + currentHalfWidth[2] * absRotation[0][0];
+	otherRadiusProjection = otherHalfWidth[1] * absRotation[1][2] + otherHalfWidth[2] * absRotation[1][1];
+	if (abs(t[0] * rotation[2][0] - t[2] * rotation[0][0]) > currentRadiusProjection + otherRadiusProjection) return 0;
+
+	// Test axis L = A1 x B1
+	currentRadiusProjection = currentHalfWidth[0] * absRotation[2][1] + currentHalfWidth[2] * absRotation[0][1];
+	otherRadiusProjection = otherHalfWidth[0] * absRotation[1][2] + otherHalfWidth[2] * absRotation[1][0];
+	if (abs(t[0] * rotation[2][1] - t[2] * rotation[0][1]) > currentRadiusProjection + otherRadiusProjection) return 0;
+
+	// Test axis L = A1 x B2
+	currentRadiusProjection = currentHalfWidth[0] * absRotation[2][2] + currentHalfWidth[2] * absRotation[0][2];
+	otherRadiusProjection = otherHalfWidth[0] * absRotation[1][1] + otherHalfWidth[1] * absRotation[1][0];
+	if (abs(t[0] * rotation[2][2] - t[2] * rotation[0][2]) > currentRadiusProjection + otherRadiusProjection) return 0;
+
+	// Test axis L = A2 x B0
+	currentRadiusProjection = currentHalfWidth[0] * absRotation[1][0] + currentHalfWidth[1] * absRotation[0][0];
+	otherRadiusProjection = otherHalfWidth[1] * absRotation[2][2] + otherHalfWidth[2] * absRotation[2][1];
+	if (abs(t[1] * rotation[0][0] - t[0] * rotation[1][0]) > currentRadiusProjection + otherRadiusProjection) return 0;
+
+	// Test axis L = A2 x B1
+	currentRadiusProjection = currentHalfWidth[0] * absRotation[1][1] + currentHalfWidth[1] * absRotation[0][1];
+	otherRadiusProjection = otherHalfWidth[0] * absRotation[2][2] + otherHalfWidth[2] * absRotation[2][0];
+	if (abs(t[1] * rotation[0][1] - t[0] * rotation[1][1]) > currentRadiusProjection + otherRadiusProjection) return 0;
+
+	// Test axis L = A2 x B2
+	currentRadiusProjection = currentHalfWidth[0] * absRotation[1][2] + currentHalfWidth[1] * absRotation[0][2];
+	otherRadiusProjection = otherHalfWidth[0] * absRotation[2][1] + otherHalfWidth[1] * absRotation[2][0];
+	if (abs(t[1] * rotation[0][2] - t[0] * rotation[1][2]) > currentRadiusProjection + otherRadiusProjection) return 0;
+
+	// Since no separating axis is found, the OBBs must be intersecting
+	return 1;
+
 	// tried skipping to the extra credit of generating the plane to understand what was going on
 	Mesh newPlane;
 
@@ -17,25 +112,25 @@ uint MyRigidBody::SAT(MyRigidBody* const a_pOther)
 }
 bool MyRigidBody::IsColliding(MyRigidBody* const a_pOther)
 {
-	bool bColliding;
 	// sum the radii of each object's bounding sphere
-	float sumRadii = this->GetRadius() + a_pOther->GetRadius();
+	//float sumRadii = this->GetRadius() + a_pOther->GetRadius();
 
 	// get distance between the center of each object
-	float distanceBetween = glm::distance(this->GetCenterGlobal(), a_pOther->GetCenterGlobal()); 
+	//float distanceBetween = glm::distance(this->GetCenterGlobal(), a_pOther->GetCenterGlobal()); 
 
 	// for testing if the spheres overlapped
 	// this->SetVisibleBS(true);
 	// a_pOther->SetVisibleBS(true);
 	
-
+	bool bColliding = true;
 	//check if spheres are colliding
-	if (sumRadii > distanceBetween) {
+	/*if (sumRadii > distanceBetween) {
 		bColliding = true;
 	}
 	else {
 		bColliding = false;
-	}
+	}*/
+
 	/*
 	* We use Bounding Spheres or ARBB as a pre-test to avoid expensive calculations (SAT)
 	* we default bColliding to true here to always fall in the need of calculating
@@ -45,7 +140,7 @@ bool MyRigidBody::IsColliding(MyRigidBody* const a_pOther)
 	{
 		uint nResult = SAT(a_pOther);
 
-		if (bColliding) //The SAT shown they are colliding
+		if (nResult != 0) //The SAT shown they are colliding
 		{
 			this->AddCollisionWith(a_pOther);
 			a_pOther->AddCollisionWith(this);
@@ -54,6 +149,7 @@ bool MyRigidBody::IsColliding(MyRigidBody* const a_pOther)
 		{
 			this->RemoveCollisionWith(a_pOther);
 			a_pOther->RemoveCollisionWith(this);
+			bColliding = false;
 		}
 	}
 	else //they are not colliding with bounding sphere
